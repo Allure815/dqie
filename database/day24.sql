@@ -1,0 +1,4 @@
+ALTER TABLE alerts
+ADD COLUMN end_time TIMESTAMP;
+
+SELECT * FROM alerts;
