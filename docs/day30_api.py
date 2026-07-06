@@ -3,11 +3,209 @@
 # ============================================================
 
 from fastapi import FastAPI, Query
+from pydantic import BaseModel
 import psycopg2
 import pandas as pd
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
+import json
+from rag_engine import search_similar_incidents
 
 app = FastAPI()
+# ================================
+# Gemini Configuration
+# ================================
 
+load_dotenv()
+
+print("=" * 50)
+print("API KEY:", os.getenv("GEMINI_API_KEY"))
+print("=" * 50)
+
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+
+model = genai.GenerativeModel("gemini-2.5-flash")
+
+# ============================================================
+# 🤖 AI SQL ANALYZER (FEATURE 4)
+# ===========================================
+# ============================================================
+# 🤖 AI SQL ANALYZER (RAG + JSON OUTPUT FIXED)
+# ============================================================
+
+def analyze_sql_with_ai(query: str, duration: int):
+
+    similar_incidents = search_similar_incidents(query)
+
+    context = "\n".join([
+        f"""
+Previous Incident:
+Query: {item['query']}
+Issue: {item['issue']}
+Solution: {item['solution']}
+Improvement: {item['improvement']}
+"""
+        for item in similar_incidents
+    ])
+
+    prompt = f"""
+You are a Senior PostgreSQL Database Performance Engineer.
+
+Analyze the current SQL incident using BOTH:
+1. Your PostgreSQL expertise.
+2. Historical similar incidents.
+
+===========================
+Historical Incidents
+===========================
+
+{context}
+
+===========================
+Current Incident
+===========================
+
+SQL Query:
+{query}
+
+Execution Time:
+{duration} seconds
+
+Return ONLY valid JSON.
+
+Use exactly this structure:
+
+{{
+    "root_cause": "...",
+    "severity": "...",
+    "business_impact": "...",
+    "optimization": [
+        "...",
+        "...",
+        "..."
+    ],
+    "expected_improvement": "...",
+    "confidence": "..."
+}}
+
+Rules:
+- Do NOT use markdown
+- Do NOT wrap in ``` blocks
+- Return ONLY JSON
+"""
+
+    try:
+        response = model.generate_content(prompt)
+
+        clean_text = (
+            response.text
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        return json.loads(clean_text)
+
+    except Exception as e:
+        return {
+            "root_cause": "AI analysis failed or invalid JSON.",
+            "severity": "Error",
+            "business_impact": str(e),
+            "optimization": [],
+            "expected_improvement": "Unknown",
+            "confidence": "Low"
+        }
+
+
+# ============================================================
+# 🤖 AI SQL EXPLAINER (TEXT OUTPUT)
+# ============================================================
+
+def explain_sql_with_ai(query: str):
+
+    prompt = f"""
+You are a Senior PostgreSQL Database Performance Engineer.
+
+Analyze the following SQL query.
+
+SQL Query:
+{query}
+
+Provide:
+
+Purpose:
+Tables Involved:
+Potential Performance Issues:
+Optimization Suggestions:
+
+Keep it concise and technical.
+"""
+
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+
+    except Exception as e:
+        return f"SQL Explanation Failed: {str(e)}"
+
+# ============================================================
+# 🤖 AI DBA COPILOT
+# ============================================================
+
+def dba_copilot(question: str, query: str):
+
+    similar = search_similar_incidents(query)
+
+    context = "\n".join([
+        f"""
+Previous Incident
+Query: {item['query']}
+Issue: {item['issue']}
+Solution: {item['solution']}
+Improvement: {item.get('improvement','N/A')}
+"""
+        for item in similar
+    ])
+
+    prompt = f"""
+You are an expert PostgreSQL Database Administrator.
+
+You are helping a DBA troubleshoot a production issue.
+
+Current SQL Query:
+
+{query}
+
+Similar Historical Incidents:
+
+{context}
+
+User Question:
+
+{question}
+
+Answer professionally.
+
+Use bullet points whenever appropriate.
+
+Be concise.
+
+Give practical DBA advice.
+
+If possible, refer to previous incidents.
+"""
+
+    try:
+
+        response = model.generate_content(prompt)
+
+        return response.text
+
+    except Exception as e:
+
+        return f"Copilot Error: {e}"
 # ============================================================
 # 🧱 DB CONNECTION
 # ============================================================
@@ -204,6 +402,9 @@ def simulate(type: str = Query(...)):
     risk = 0
     issue_type = "NORMAL"
     recommendations = []
+    ai_analysis = "No AI analysis available."
+    sql_explanation = ""
+    similar_incidents = []
 
     # 🐢 SLOW
     if type == "slow":
@@ -215,7 +416,17 @@ def simulate(type: str = Query(...)):
         anomaly = duration > (old_avg * 2)
 
         risk = calculate_dynamic_risk(duration, 50, anomaly, issue_type)
-        recommendations = generate_recommendations(issue_type, duration, anomaly)
+
+        recommendations = generate_recommendations(
+            issue_type,
+            duration,
+            anomaly
+        )
+
+        # 🤖 AI Analysis
+        ai_analysis = analyze_sql_with_ai(query, duration)
+        sql_explanation = explain_sql_with_ai(query)
+        similar_incidents = search_similar_incidents(query)
 
         cur.execute("""
             INSERT INTO incidents (pid, query, duration, issue_type, risk_score)
@@ -232,7 +443,17 @@ def simulate(type: str = Query(...)):
         anomaly = duration > (old_avg * 2)
 
         risk = calculate_dynamic_risk(duration, 70, anomaly, issue_type)
-        recommendations = generate_recommendations(issue_type, duration, anomaly)
+
+        recommendations = generate_recommendations(
+            issue_type,
+            duration,
+            anomaly
+        )
+
+        # 🤖 AI Analysis
+        ai_analysis = analyze_sql_with_ai(query, duration)
+        sql_explanation = explain_sql_with_ai(query)
+        similar_incidents = search_similar_incidents(query)
 
         cur.execute("""
             INSERT INTO incidents (pid, query, duration, issue_type, risk_score)
@@ -244,6 +465,7 @@ def simulate(type: str = Query(...)):
         pass
 
     else:
+        conn.close()
         return {"status": "Invalid type"}
 
     conn.commit()
@@ -253,11 +475,35 @@ def simulate(type: str = Query(...)):
         "status": "Scenario Applied",
         "type": type,
         "details": {
-            "query": query,
-            "duration": duration,
-            "old_avg": old_avg,
-            "anomaly": anomaly,
-            "final_risk": risk,
-            "recommendations": recommendations
-        }
+		"query": query,
+   		 "duration": duration,
+    		"old_avg": old_avg,
+   		 "anomaly": anomaly,
+    		"final_risk": risk,
+    		"recommendations": recommendations,
+    		"ai_analysis": ai_analysis,
+                "sql_explanation": sql_explanation,
+                "similar_incidents": similar_incidents
+		}
+    }
+
+# ============================================================
+# 🤖 AI DBA COPILOT ENDPOINT
+# ============================================================
+
+class CopilotRequest(BaseModel):
+    question: str
+    query: str
+
+
+@app.post("/copilot")
+def ai_dba_copilot(request: CopilotRequest):
+
+    answer = dba_copilot(
+        request.question,
+        request.query
+    )
+
+    return {
+        "answer": answer
     }

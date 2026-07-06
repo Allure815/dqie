@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "query": "SELECT * FROM large_table",
+    "issue": "Full table scan causing high I/O",
+    "solution": "Use WHERE clause, avoid SELECT *, add indexes",
+    "improvement": "90% faster execution"
+  },
+  {
+    "id": 2,
+    "query": "UPDATE orders SET status='Done'",
+    "issue": "Long-running update locking rows",
+    "solution": "Batch updates and create index on status",
+    "improvement": "70% reduction in locking"
+  },
+  {
+    "id": 3,
+    "query": "DELETE FROM logs",
+    "issue": "Mass delete causing table locks",
+    "solution": "Delete in batches or use partitioning",
+    "improvement": "80% less blocking"
+  },
+  {
+    "id": 4,
+    "query": "SELECT customer_id FROM orders",
+    "issue": "Sequential scan due to missing index",
+    "solution": "Create index on customer_id",
+    "improvement": "95% faster query"
+  },
+  {
+    "id": 5,
+    "query": "SELECT COUNT(*) FROM orders",
+    "issue": "Large table aggregation",
+    "solution": "Use materialized views or summary tables",
+    "improvement": "85% faster reporting"
+  }
+]
