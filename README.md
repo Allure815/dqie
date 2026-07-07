@@ -16,7 +16,7 @@ Instead of manually investigating slow queries, blocking sessions, execution pla
 
 👉 **Demo Video**
 
-> https://github.com/Allure815/dqie/blob/main/demo/streamlit-day30_streamlit-2026-07-07-15-28-33.webm****
+> https://github.com/Allure815/dqie/blob/main/demo/Demo.mp4****
 
 ---
 
