@@ -30,7 +30,7 @@ Instead of manually investigating slow queries, blocking sessions, execution pla
 
 ## AI Root Cause Analysis
 
-![AI RCA](images/ai_rca.png)
+![AI RCA](https://github.com/Allure815/dqie/blob/main/demo/RCA.png)
 
 ---
 
