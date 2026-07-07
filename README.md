@@ -16,7 +16,7 @@ Instead of manually investigating slow queries, blocking sessions, execution pla
 
 👉 **Demo Video**
 
-> ****
+> https://github.com/Allure815/dqie/blob/main/demo/streamlit-day30_streamlit-2026-07-07-15-28-33.webm****
 
 ---
 
@@ -38,12 +38,14 @@ Instead of manually investigating slow queries, blocking sessions, execution pla
 
 ![Semantic Search](https://github.com/Allure815/dqie/blob/main/demo/Semantic%20Search-1.png)
 
+![Semantic Search](https://github.com/Allure815/dqie/blob/main/demo/Semantic%20Search-2.png)
+
 
 ---
 
 **##Other Functionalities**
 
-https://github.com/Allure815/dqie/blob/main/demo/Other.png
+![Copilot](https://github.com/Allure815/dqie/blob/main/demo/Other.png)
 ---
 
 ## AI DBA Copilot
